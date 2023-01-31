@@ -350,6 +350,14 @@ python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,>=2.7"
 six = ">=1.5"
 
 [[package]]
+name = "pytsetlinmachine"
+version = "0.6.2"
+description = "Implements the Tsetlin Machine, Embedding Tsetlin Machine, Convolutional Tsetlin Machine, Regression Tsetlin Machine, and Weighted Tsetlin Machine, with support for continuous features, multigranularity, clause indexing, and drop clause/literal."
+category = "main"
+optional = false
+python-versions = "*"
+
+[[package]]
 name = "pytz"
 version = "2022.7.1"
 description = "World timezone definitions, modern and historical"
@@ -546,7 +554,7 @@ testing = ["pytest (>=6)", "pytest-checkdocs (>=2.4)", "flake8 (<5)", "pytest-co
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.9.0, <3.10"
-content-hash = "735e1f98a2ee4a74c1c317b8eae5ca3016cd3994396a1a6be5902ea8a4a25b2f"
+content-hash = "69708ff30e5cc4526799c5d26e16df29d22ee90db15eec5080d5a21e24356d82"
 
 [metadata.files]
 adaswarm = []
@@ -577,6 +585,7 @@ py-spy = []
 pylint = []
 pyparsing = []
 python-dateutil = []
+pytsetlinmachine = []
 pytz = []
 scikit-learn = []
 scipy = []

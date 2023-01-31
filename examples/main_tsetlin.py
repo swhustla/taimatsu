@@ -77,16 +77,6 @@ def run():
 
                 predictions = model.predict(inputs)
 
-                # if dataset_name() in ["Iris", "Wine", "BreastCancer"]:
-                #     predictions = np.array(predictions).reshape(-1,1)
-                #     # convert predictions to a triple column, via one-hot encoding (for Iris, Wine, BreastCancer)
-                #     predictions = np.eye(3)[predictions]
-                #     # convert predicitons to a single column (for Iris, Wine, BreastCancer)
-                #     predictions = np.array(predictions).reshape(-1)
-
-
-                # compare predictions to targets avoiding IndexError: list assignment index out of range
-
                 accuracy = np.sum(predictions == targets) / targets.shape[0]
                 # print(f"accuracy: {accuracy}")
                 batch_accuracies.append(accuracy)
@@ -108,14 +98,6 @@ def run():
                     targets = np.array(targets).reshape(-1)
                     inputs = inputs.numpy()
                 predictions = model.predict(inputs)
-
-
-                # if dataset_name() in ["Iris", "Wine", "BreastCancer"]:
-                #     predictions = np.array(predictions).reshape(-1,1)
-                #     # convert predictions to a triple column, via one-hot encoding (for Iris, Wine, BreastCancer)
-                #     predictions = np.eye(3)[predictions]
-                #     # convert predicitons to a single column (for Iris, Wine, BreastCancer)
-                #     predictions = np.array(predictions).reshape(-1)
 
 
                 batch_accuracies.append(np.sum(predictions == targets) / targets.shape[0])

@@ -16,7 +16,7 @@ from taimatsu.utils.options import get_device
 from taimatsu.resnet import ResNet18
 from taimatsu.model import Model
 
-import pandas as pd
+import logging
 
 from sklearn import datasets as skl_datasets
 from torchvision import datasets as tv_datasets
@@ -34,29 +34,14 @@ class DataLoaderFetcher:
     def train_loader(self) -> DataLoader:
 
         # TODO: make Iris the default
-        if self.name == "Iris":
-            if self.model_name == "ResNet18":
-                return DataLoader(
-                    self.dataset(train=True),
-                    batch_size=40,
-                    shuffle=True,
-                    drop_last=False,
-                )
-            elif self.model_name == "TsetlinMachine":
-                return DataBinarizer(DataLoader(
-                    self.dataset(train=True),
-                    batch_size=40,
-                    shuffle=True,
-                    drop_last=False,
-                ))
-
-        elif self.name == "Wine":
+        if self.name == "Iris" or self.name == "Wine":
             return DataLoader(
-                self.dataset(train=True),
+                self.dataset(train=True, transform=None),
                 batch_size=40,
                 shuffle=True,
                 drop_last=False,
             )
+
 
         elif self.name == "MNIST":
             transform_train = transforms.Compose(
@@ -80,7 +65,7 @@ class DataLoaderFetcher:
             )
 
     def test_loader(self) -> DataLoader:
-        if self.name == "Iris":
+        if self.name == "Iris" or self.name == "Wine":
             return DataLoader(
                 self.dataset(train=False),
                 batch_size=10,
@@ -88,13 +73,6 @@ class DataLoaderFetcher:
                 drop_last=False,
             )
 
-        elif self.name == "Wine":
-            return DataLoader(
-                self.dataset(train=False),
-                batch_size=10,
-                shuffle=True,
-                drop_last=False,
-            )
 
         elif self.name == "MNIST":
             transform_test = transforms.Compose(
@@ -111,10 +89,16 @@ class DataLoaderFetcher:
             )
 
     def dataset(self, train=True, transform=None):
+        if self.model_name == "TsetlinMachine":
+            binarize = True
+            categorical = False
+        else:
+            binarize = False
+            categorical = True
         if self.name == "Iris":
-            return TabularDataSet(train=train, dataset=skl_datasets.load_iris)
+            return TabularDataSet(train=train, dataset=skl_datasets.load_iris, binarize=binarize, categorical=categorical)
         elif self.name == "Wine":
-            return TabularDataSet(train=train, dataset=skl_datasets.load_wine)
+            return TabularDataSet(train=train, dataset=skl_datasets.load_wine, binarize=binarize, categorical=categorical)
         elif self.name == "MNIST":
             return tv_datasets.MNIST(
                 root="./data", train=train, download=True, transform=transform
@@ -122,13 +106,7 @@ class DataLoaderFetcher:
 
     def model(self):
         if self.model_name == "ResNet18":
-            if self.name == "Iris":
-                model = Model(
-                    n_features=self.dataset().number_of_predictors(),
-                    n_neurons=10,
-                    n_out=self.dataset().number_of_categories(),
-                )
-            elif self.name == "Wine":
+            if self.name == "Iris" or self.name == "Wine":
                 model = Model(
                     n_features=self.dataset().number_of_predictors(),
                     n_neurons=10,
@@ -147,15 +125,13 @@ class DataLoaderFetcher:
                 threshold_large_t = 10  # Tsetlin Machine threshold
                 boost_factor_s = 3.0 # Tsetlin Machine boost factor
                 number_of_clauses = 300 # Number of clauses per TM
-                number_of_states = 100 # Number of states per TM
+                number_of_state_bits = 100 # Number of state bits per TM
 
                 model = MultiClassTsetlinMachine(
-                    self.dataset().number_of_categories(),
-                    number_of_clauses,
-                    self.dataset().number_of_predictors(),
-                    number_of_states,    
-                    boost_factor_s,
-                    threshold_large_t,
+                    number_of_clauses=number_of_clauses,
+                    number_of_state_bits=number_of_state_bits,    
+                    s=boost_factor_s,
+                    T=threshold_large_t,
                     boost_true_positive_feedback = 1
                 )
                 return model
@@ -165,17 +141,30 @@ class DataLoaderFetcher:
 
 
 class TabularDataSet(Dataset):
-    def __init__(self, train=True, dataset=None):
+    def __init__(self, train=True, dataset=None, binarize=False, categorical=True):
+
+        self.binarize_bool = binarize
         if dataset is None:
             raise RuntimeError("Dataset not provided")
 
         data_bundle = dataset()
 
         x, y = data_bundle.data, data_bundle.target
-        y_categorical = to_categorical(y)
+
+        if self.binarize_bool:
+            x = self.binarize_data(x)
+        if categorical:
+            y_formatted = to_categorical(y)
+            self._number_of_categories = np.shape(y_formatted)[1]
+        else:
+            
+            y_formatted = np.array(y)
+            # change to 1D array of arrays
+            y_formatted = np.reshape(y_formatted, (len(y_formatted), 1))
+            self._number_of_categories = np.shape(np.unique(y))[0]
+            print(f"Number of categories: {self._number_of_categories}")
 
         self._number_of_predictors = np.shape(x)[1]
-        self._number_of_categories = np.shape(y_categorical)[1]
 
         stratified_shuffle_split = StratifiedShuffleSplit(
             n_splits=1, test_size=0.2, random_state=123
@@ -184,8 +173,8 @@ class TabularDataSet(Dataset):
         for train_index, test_index in stratified_shuffle_split.split(X=x, y=y):
             x_train_array = x[train_index]
             x_test_array = x[test_index]
-            y_train_array = y_categorical[train_index]
-            y_test_array = y_categorical[test_index]
+            y_train_array = y_formatted[train_index]
+            y_test_array = y_formatted[test_index]
 
         if train:
 
@@ -200,7 +189,9 @@ class TabularDataSet(Dataset):
         if is_tensor(idx):
             idx = idx.tolist()
         # TODO: may be repetition of from_numpy here
+
         predictors = from_numpy(self.data[idx, :]).float().to(device)
+
         categories = from_numpy(self.target[idx]).to(device)
         return predictors, categories
 
@@ -210,41 +201,23 @@ class TabularDataSet(Dataset):
     def number_of_categories(self):
         return self._number_of_categories
 
+    @staticmethod
+    def binarize_data(data: np.array) -> np.array:
+        """Binarize the data using pyTsetlinMachine.tools.Binarizer."""
+        logging.info(f"feature shape: {data.shape}")
+        logging.debug(f"feature sample: \n {data}")
+        binarizer = Binarizer(max_bits_per_feature=4)
+        binarizer.fit(data)
+        binarized_data_array = binarizer.transform(data)
+        logging.info(f"Binarized data shape: {binarized_data_array.shape}")
+        logging.debug(f"Binarized data sample: \n {binarized_data_array[:5]}")
+
+        return binarized_data_array
+    
+         
+
     def __len__(self):
         return len(self.data)
 
 
 
-
-
-class DataBinarizer(DataLoader):
-    """A class to binarize the data, aimed at the Tsetlin Machine."""
-    
-    def __init__(self, dataset, batch_size=1, shuffle=False, num_workers=0):
-        super().__init__(dataset, batch_size, shuffle, num_workers)
-
-    def __iter__(self):
-        for predictors, categories in super().__iter__():
-            binarized_predictors = self.__binarize_data(predictors)
-            yield binarized_predictors, categories
-
-    @staticmethod
-    def __binarize_data(data: pd.DataFrame) -> pd.DataFrame:
-        """
-        Binarize the data.
-
-        The Tsetlin Machine requires the data to be binarized,
-        i.e. to be represented as a set of 0s and 1s, due to the way that it works.
-        """
-        binarizer = Binarizer(max_bits_per_feature=10)
-        np_array_version_of_data = np.array(data)
-        binarizer.fit(np_array_version_of_data)
-        binarized_data_array = binarizer.transform(np_array_version_of_data)
-        new_binarized_columns = [
-            f"binarized_{i}" for i in range(binarized_data_array.shape[1])
-        ]
-        return pd.DataFrame(
-            binarized_data_array, columns=new_binarized_columns
-        )
-    
-    

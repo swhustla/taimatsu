@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""An example that uses AdaSwarm on MNIST dataset"""
+"""An example that uses AdaSwarm on MNIST and other datasets"""
 
 import argparse
 import logging

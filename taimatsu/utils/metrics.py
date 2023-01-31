@@ -129,7 +129,7 @@ class Metrics:
                 "Platform": platform(),
                 "Dataset": self.dataset,
                 "Epochs": self.stats.number_of_epochs,
-                "Elapsed (s)": time_taken,
+                "Elapsed (s)": np.round(time_taken, 4),
                 "Training Acc %": np.round(
                     100.0 * self.stats.best_training_accuracy, 2
                 ),

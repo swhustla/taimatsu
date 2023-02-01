@@ -21,7 +21,7 @@ from taimatsu.utils import progress_bar, Metrics
 from taimatsu.data import DataLoaderFetcher
 
 from taimatsu.utils.options import (
-    # number_of_epochs,
+    number_of_epochs,
     dataset_name,
     get_device,
     log_level,
@@ -35,7 +35,7 @@ logging.basicConfig(level=log_level())
 def run():
     with Metrics(name="Tsetlin", dataset=dataset_name()) as metrics:
 
-        number_of_epochs = 500
+        # number_of_epochs = 500
         logging.debug("in run function")
         device = get_device()
         # Data
@@ -60,8 +60,9 @@ def run():
         # Training
         logging.info(f"==> Training Tsetlin machine model for {number_of_epochs} epochs..")
         
-        def train():
-
+        def train(epoch):
+            print(f"Epoch {epoch} of {number_of_epochs}")
+            metrics.current_epoch(epoch + 1)
             batch_accuracies = []
 
             for batch_idx, (inputs, targets) in enumerate(train_loader):
@@ -73,7 +74,7 @@ def run():
                     targets = np.array(targets).reshape(-1)
                     inputs = inputs.numpy()
 
-                model.fit(X=inputs, Y=targets, epochs=number_of_epochs)
+                model.fit(X=inputs, Y=targets, epochs=1, incremental=True)
 
                 predictions = model.predict(inputs)
 
@@ -81,14 +82,19 @@ def run():
                 # print(f"accuracy: {accuracy}")
                 batch_accuracies.append(accuracy)
                 toc = time.monotonic()
-                logging.info(f"Batch {batch_idx} of {num_batches_train} had accuracy {100*batch_accuracies[batch_idx]:.1f}% | Time: {toc-tic:.2f}s")
+                
+                # logging.info(f"Batch {batch_idx} of {num_batches_train} had accuracy {100*batch_accuracies[batch_idx]:.1f}% | Time: {toc-tic:.2f}s")
                 metrics.update_batch_training_accuracy(batch_accuracies[batch_idx])
                 metrics.update_training_loss(0)
+                progress_bar(
+                    batch_idx, 
+                    num_batches_train, 
+                    f"Epoch {epoch} of {number_of_epochs} | Training | Accuracy: {100*batch_accuracies[batch_idx]:.1f}% | Time: {toc-tic:.2f}s")
             logging.info(f"Average accuracy on training set: {100*np.mean(batch_accuracies):.1f}% +/- {100*np.std(batch_accuracies):.1f}%")
             metrics.add_epoch_train_accuracy(100 * sum(batch_accuracies) / len(batch_accuracies))
             metrics.add_epoch_train_loss(0)
 
-        def test():
+        def test(epoch):
             batch_accuracies = []
             for batch_idx, (inputs, targets) in enumerate(test_loader):
                 inputs, targets = inputs.to(device), targets.to(device)
@@ -101,15 +107,24 @@ def run():
 
 
                 batch_accuracies.append(np.sum(predictions == targets) / targets.shape[0])
-                logging.info(f"Batch {batch_idx} of {num_batches_test} had accuracy {100*batch_accuracies[batch_idx]:.1f}%")
+                # logging.info(f"Batch {batch_idx} of {num_batches_test} had accuracy {100*batch_accuracies[batch_idx]:.1f}%")
+                
                 metrics.update_test_accuracy(batch_accuracies[batch_idx])
                 metrics.update_test_loss(0)
+                
+                progress_bar(
+                    batch_idx,
+                    num_batches_test,
+                    f"Epoch {epoch} of {number_of_epochs} | Testing | Accuracy: {100*batch_accuracies[batch_idx]:.1f}%")
+
+
             logging.info(f"Average accuracy on test set: {100*np.mean(batch_accuracies):.1f}% +/- {100*np.std(batch_accuracies):.1f}%")
             metrics.add_epoch_test_accuracy(100 * sum(batch_accuracies) / len(batch_accuracies))
             metrics.add_epoch_test_loss(0)
 
-        train()
-        test()
+        for epoch in range(number_of_epochs()):
+            train(epoch)
+            test(epoch)
 
         return metrics
 

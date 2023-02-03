@@ -37,7 +37,7 @@ class DataLoaderFetcher:
         if self.name == "Iris" or self.name == "Wine":
             return DataLoader(
                 self.dataset(train=True, transform=None),
-                batch_size=40,
+                batch_size=len(self.dataset(train=True, transform=None)),  # batch size is the entire dataset
                 shuffle=True,
                 drop_last=False,
             )
@@ -68,7 +68,7 @@ class DataLoaderFetcher:
         if self.name == "Iris" or self.name == "Wine":
             return DataLoader(
                 self.dataset(train=False),
-                batch_size=10,
+                batch_size=len(self.dataset(train=False)), # batch size is the entire dataset
                 shuffle=True,
                 drop_last=False,
             )

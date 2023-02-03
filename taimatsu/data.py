@@ -106,7 +106,7 @@ class DataLoaderFetcher:
 
     def model(self):
         if self.model_name == "ResNet18":
-            if self.name == "Iris" or self.name == "Wine":
+            if self.name in ["Iris", "Wine"]:
                 model = Model(
                     n_features=self.dataset().number_of_predictors(),
                     n_neurons=10,
@@ -114,29 +114,29 @@ class DataLoaderFetcher:
                 )
             elif self.name == "MNIST":
                 model = ResNet18(in_channels=1, num_classes=10)
+
             model = model.to(device)
             if cuda.is_available():
                 cudnn.benchmark = True
-                # TODO: Use torch.nn.parallel.DistributedDataParallel
                 model = DataParallel(model)
+
             return model
         elif self.model_name == "TsetlinMachine":
             if self.name == "Iris":
-                threshold_large_t = 10  # Tsetlin Machine threshold
-                boost_factor_s = 3.0 # Tsetlin Machine boost factor
-                number_of_clauses = 300 # Number of clauses per TM
-                number_of_state_bits = 100 # Number of state bits per TM
+                number_of_clauses = 300
+                number_of_state_bits = 100
 
                 model = MultiClassTsetlinMachine(
                     number_of_clauses=number_of_clauses,
-                    number_of_state_bits=number_of_state_bits,    
-                    s=boost_factor_s,
-                    T=threshold_large_t,
-                    boost_true_positive_feedback = 1
+                    number_of_state_bits=number_of_state_bits,
+                    s=3.0,
+                    T=10,
+                    boost_true_positive_feedback=1
                 )
                 return model
         else:
-            raise RuntimeError(f"Model {self.model_name} not supported with dataset {self.name}")
+            raise ValueError(f"Model '{self.model_name}' not supported for dataset '{self.name}'")
+
 
 
 
@@ -204,12 +204,12 @@ class TabularDataSet(Dataset):
     @staticmethod
     def binarize_data(data: np.array) -> np.array:
         """Binarize the data using pyTsetlinMachine.tools.Binarizer."""
-        logging.info(f"feature shape: {data.shape}")
-        logging.debug(f"feature sample: \n {data}")
+        logging.debug(f"feature shape: {data.shape}")
+        logging.debug(f"feature sample: \n {data[:5]}")
         binarizer = Binarizer(max_bits_per_feature=4)
         binarizer.fit(data)
         binarized_data_array = binarizer.transform(data)
-        logging.info(f"Binarized data shape: {binarized_data_array.shape}")
+        logging.debug(f"Binarized data shape: {binarized_data_array.shape}")
         logging.debug(f"Binarized data sample: \n {binarized_data_array[:5]}")
 
         return binarized_data_array
